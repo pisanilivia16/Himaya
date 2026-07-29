@@ -1,0 +1,28 @@
+# ─────────────────────────────────────────────────────────────
+#  TCC — Scanner de Segurança
+#  Dependências do projeto
+#
+#  Instalação:
+#      pip install -r requirements.txt
+#
+#  Python recomendado: 3.10 ou superior
+# ─────────────────────────────────────────────────────────────
+
+# Aplicações web alvo dos testes
+flask>=3.0.0
+
+# Hash seguro de senhas (módulos: password_strength, password_hash_check, arquivoseguro)
+bcrypt>=4.1.0
+
+# Requisições HTTP para testes web (módulos: brute_force, input_validation, sql_injection, web_sql_injection)
+requests>=2.31.0
+
+# ─────────────────────────────────────────────────────────────
+#  Dependências de desenvolvimento (testes)
+# ─────────────────────────────────────────────────────────────
+
+# Testes automatizados
+pytest>=8.0.0
+
+# Relatórios de cobertura de testes
+pytest-cov>=5.0.0

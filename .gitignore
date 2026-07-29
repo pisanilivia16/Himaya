@@ -1,0 +1,19 @@
+# Bancos de dados (gerados automaticamente ao rodar)
+*.db
+*.db-journal
+
+# Logs e relatórios gerados pelo scanner
+logs/
+reports/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Ambientes virtuais
+venv/
+.venv/
+env/

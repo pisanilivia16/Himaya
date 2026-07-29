@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — Sistema Vulnerável</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --vermelho:     #ff2a2a;
+      --vermelho-esc: #8b0000;
+      --laranja:      #ff6a00;
+      --fundo:        #0a0a0a;
+      --painel:       #110d0d;
+      --borda:        #3a1010;
+      --texto:        #e8d5d5;
+      --texto-fraco:  #7a5555;
+      --input-bg:     #1a0f0f;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: var(--fundo);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Rajdhani', sans-serif;
+      overflow: hidden;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--borda) 1px, transparent 1px),
+        linear-gradient(90deg, var(--borda) 1px, transparent 1px);
+      background-size: 40px 40px;
+      opacity: 0.4;
+      animation: grid-scroll 20s linear infinite;
+    }
+
+    @keyframes grid-scroll {
+      0%   { transform: translateY(0); }
+      100% { transform: translateY(40px); }
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(139,0,0,0.18) 0%, transparent 70%);
+      animation: pulso 3s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes pulso {
+      0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+      50%       { opacity: 1;   transform: translate(-50%, -50%) scale(1.15); }
+    }
+
+    .painel {
+      position: relative;
+      z-index: 10;
+      width: 380px;
+      background: var(--painel);
+      border: 1px solid var(--borda);
+      border-top: 3px solid var(--vermelho);
+      padding: 40px 36px 36px;
+      box-shadow:
+        0 0 40px rgba(255,42,42,0.12),
+        0 0 0 1px rgba(255,42,42,0.05),
+        inset 0 1px 0 rgba(255,42,42,0.08);
+      animation: entrada 0.5s ease-out both;
+    }
+
+    @keyframes entrada {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .painel::before, .painel::after {
+      content: '';
+      position: absolute;
+      width: 12px; height: 12px;
+      border-color: var(--vermelho);
+      border-style: solid;
+    }
+    .painel::before { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
+    .painel::after  { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; }
+
+    .aviso-topo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,42,42,0.08);
+      border: 1px solid rgba(255,42,42,0.25);
+      border-radius: 4px;
+      padding: 8px 12px;
+      margin-bottom: 28px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px;
+      color: var(--vermelho);
+      letter-spacing: 0.05em;
+    }
+
+    .aviso-topo::before {
+      content: '⚠';
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .cabecalho {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .cabecalho h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--texto);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .cabecalho .subtitulo {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      color: var(--texto-fraco);
+      margin-top: 6px;
+      letter-spacing: 0.08em;
+    }
+
+    .campo {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--texto-fraco);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    input {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--borda);
+      border-radius: 4px;
+      padding: 12px 14px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px;
+      color: var(--texto);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input:focus {
+      border-color: var(--vermelho);
+      box-shadow: 0 0 0 3px rgba(255,42,42,0.1);
+    }
+
+    input::placeholder { color: #3a2020; }
+
+    button {
+      width: 100%;
+      margin-top: 8px;
+      padding: 14px;
+      background: var(--vermelho-esc);
+      border: 1px solid var(--vermelho);
+      border-radius: 4px;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    button:hover {
+      background: var(--vermelho);
+      box-shadow: 0 0 20px rgba(255,42,42,0.35);
+    }
+
+    button:active { transform: scale(0.98); }
+
+    .rodape {
+      margin-top: 24px;
+      text-align: center;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px;
+      color: var(--texto-fraco);
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+<body>
+  <div class="painel">
+
+    <div class="aviso-topo">
+      AMBIENTE VULNERÁVEL — APENAS PARA TESTES
+    </div>
+
+    <div class="cabecalho">
+      <h1>Sistema de Login</h1>
+      <p class="subtitulo">arquivovulneravel · porta 5000</p>
+    </div>
+
+    <form action="/login" method="post">
+      <div class="campo">
+        <label for="usuario">Usuário</label>
+        <input type="text" id="usuario" name="usuario" placeholder="digite o usuário" autocomplete="off">
+      </div>
+
+      <div class="campo">
+        <label for="senha">Senha</label>
+        <input type="password" id="senha" name="senha" placeholder="••••••••">
+      </div>
+
+      <button type="submit">Entrar</button>
+    </form>
+
+    <p class="rodape">TCC — Scanner de Segurança · Alvo dos testes</p>
+  </div>
+</body>
+</html>

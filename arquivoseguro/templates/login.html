@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — Sistema Seguro</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --azul:       #1a6cf5;
+      --azul-esc:   #0f4db5;
+      --verde:      #00c896;
+      --fundo:      #f0f4ff;
+      --painel:     #ffffff;
+      --borda:      #dce4f5;
+      --texto:      #0f1b33;
+      --texto-fraco:#6b7fa3;
+      --input-bg:   #f7f9ff;
+      --sombra:     rgba(26,108,245,0.12);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: var(--fundo);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'DM Sans', sans-serif;
+      position: relative;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: -120px; right: -120px;
+      width: 420px; height: 420px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(26,108,245,0.08) 0%, transparent 70%);
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -80px; left: -80px;
+      width: 320px; height: 320px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0,200,150,0.08) 0%, transparent 70%);
+    }
+
+    .painel {
+      position: relative;
+      z-index: 10;
+      width: 400px;
+      background: var(--painel);
+      border: 1px solid var(--borda);
+      border-radius: 16px;
+      padding: 44px 40px 40px;
+      box-shadow:
+        0 4px 6px rgba(0,0,0,0.04),
+        0 20px 60px var(--sombra);
+      animation: entrada 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    @keyframes entrada {
+      from { opacity: 0; transform: translateY(24px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0)   scale(1); }
+    }
+
+    .barra-seguranca {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,200,150,0.08);
+      border: 1px solid rgba(0,200,150,0.25);
+      border-radius: 8px;
+      padding: 9px 14px;
+      margin-bottom: 32px;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: #00a87a;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+    }
+
+    .barra-seguranca .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--verde);
+      flex-shrink: 0;
+      box-shadow: 0 0 6px rgba(0,200,150,0.6);
+      animation: pisca 2s ease-in-out infinite;
+    }
+
+    @keyframes pisca {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    .cabecalho {
+      margin-bottom: 32px;
+    }
+
+    .cabecalho h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--texto);
+      letter-spacing: -0.02em;
+    }
+
+    .cabecalho .subtitulo {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--texto-fraco);
+      margin-top: 6px;
+    }
+
+    .campo {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--texto);
+      margin-bottom: 8px;
+    }
+
+    input {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1.5px solid var(--borda);
+      border-radius: 10px;
+      padding: 13px 16px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      color: var(--texto);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    }
+
+    input:focus {
+      border-color: var(--azul);
+      background: #fff;
+      box-shadow: 0 0 0 4px rgba(26,108,245,0.1);
+    }
+
+    input::placeholder { color: #c0cbe0; }
+
+    button {
+      width: 100%;
+      margin-top: 8px;
+      padding: 14px;
+      background: var(--azul);
+      border: none;
+      border-radius: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+      box-shadow: 0 4px 16px rgba(26,108,245,0.3);
+    }
+
+    button:hover {
+      background: var(--azul-esc);
+      box-shadow: 0 6px 24px rgba(26,108,245,0.4);
+    }
+
+    button:active { transform: scale(0.98); }
+
+    .selos {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 28px;
+    }
+
+    .selo {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      color: var(--texto-fraco);
+    }
+
+    .selo::before {
+      content: '✓';
+      font-size: 11px;
+      color: var(--verde);
+      font-weight: 700;
+    }
+
+    .rodape {
+      margin-top: 20px;
+      text-align: center;
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      color: #c0cbe0;
+    }
+  </style>
+</head>
+<body>
+  <div class="painel">
+
+    <div class="barra-seguranca">
+      <span class="dot"></span>
+      CONEXÃO SEGURA · bcrypt + rate limiting ativos
+    </div>
+
+    <div class="cabecalho">
+      <h1>Bem-vindo de volta</h1>
+      <p class="subtitulo">arquivoseguro · porta 5001</p>
+    </div>
+
+    <form action="/login" method="post">
+      <div class="campo">
+        <label for="usuario">Usuário</label>
+        <input type="text" id="usuario" name="usuario" placeholder="seu usuário" autocomplete="username">
+      </div>
+
+      <div class="campo">
+        <label for="senha">Senha</label>
+        <input type="password" id="senha" name="senha" placeholder="••••••••" autocomplete="current-password">
+      </div>
+
+      <button type="submit">Entrar com segurança</button>
+    </form>
+
+    <div class="selos">
+      <span class="selo">bcrypt</span>
+      <span class="selo">rate limiting</span>
+      <span class="selo">SQL parametrizado</span>
+    </div>
+
+    <p class="rodape">TCC — Scanner de Segurança · Versão protegida</p>
+  </div>
+</body>
+</html>

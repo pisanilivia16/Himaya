@@ -1,0 +1,26 @@
+services:
+  # ── Scanner de Segurança ─────────────────────────────────
+  - type: web
+    name: tcc-scanner
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py --saida html
+
+  # ── Aplicação Vulnerável (alvo dos testes) ───────────────
+  - type: web
+    name: tcc-app-vulneravel
+    runtime: python
+    rootDir: arquivovulneravel
+    buildCommand: pip install flask
+    startCommand: python app.py
+    envVars:
+      - key: FLASK_ENV
+        value: development
+
+  # ── Aplicação Segura (versão corrigida) ──────────────────
+  - type: web
+    name: tcc-app-segura
+    runtime: python
+    rootDir: arquivoseguro
+    buildCommand: pip install flask bcrypt
+    startCommand: python app.py
