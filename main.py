@@ -14,6 +14,7 @@ from datetime import datetime
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from config import ALVOS
 from scanner.modulos.sql_injection import testar_sql_injection
 from scanner.modulos.brute_force import testar_bruteforce
 from scanner.modulos.password_strength import testar_senha_fraca
@@ -107,17 +108,30 @@ MODULOS_DISPONIVEIS = {
     "input_validation": ("Validação de Entrada", testar_validacao_entrada),
 }
 
-def executar_modulo(nome_chave: str, logger: logging.Logger) -> dict:
+# Módulos que atacam uma aplicação via HTTP e, portanto, rodam uma vez
+# POR ALVO (config.ALVOS) — os outros (password_strength, password_hash)
+# testam direto o banco de dados e rodam uma única vez.
+MODULOS_POR_ALVO = {"sql_injection", "brute_force", "input_validation"}
+
+
+def executar_modulo(nome_chave: str, logger: logging.Logger,
+                     url: str = None, nome_alvo: str = None) -> dict:
     """
     Executa um módulo de teste e retorna um dicionário com:
     nome, resultado, severidade, tempo de execução e status.
+
+    Se `url` for informado, o módulo é executado contra esse alvo
+    específico e `nome_alvo` é anexado ao nome de exibição, para que
+    o relatório mostre o resultado de cada app separadamente.
     """
     nome_exibicao, funcao = MODULOS_DISPONIVEIS[nome_chave]
+    if nome_alvo:
+        nome_exibicao = f"{nome_exibicao} ({nome_alvo})"
     logger.debug(f"Iniciando módulo: {nome_exibicao}")
 
     inicio = time.perf_counter()
     try:
-        resultado = funcao()
+        resultado = funcao(url) if url is not None else funcao()
         status = "ok"
     except Exception as e:
         resultado = f"ERRO - Falha inesperada: {e}"
@@ -405,11 +419,19 @@ def main():
     logger.info(f"Iniciando scan. Módulos: {modulos_para_rodar}")
     inicio_total = time.perf_counter()
 
-    # Executa cada módulo
+    # Executa cada módulo — os módulos de rede rodam uma vez por alvo
+    # (config.ALVOS), para testar app vulnerável e app segura de uma vez
     resultados = []
     for chave in modulos_para_rodar:
-        resultado = executar_modulo(chave, logger)
-        resultados.append(resultado)
+        if chave in MODULOS_POR_ALVO:
+            for alvo in ALVOS:
+                resultado = executar_modulo(
+                    chave, logger, url=alvo["url"], nome_alvo=alvo["nome"]
+                )
+                resultados.append(resultado)
+        else:
+            resultado = executar_modulo(chave, logger)
+            resultados.append(resultado)
 
     fim_total = time.perf_counter()
     duracao_total = round(fim_total - inicio_total, 2)
@@ -450,4 +472,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main().
+    main()
