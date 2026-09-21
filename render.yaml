@@ -3,6 +3,7 @@ services:
   - type: web
     name: tcc-scanner
     runtime: python
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: python main.py --saida html
 
@@ -10,6 +11,7 @@ services:
   - type: web
     name: tcc-app-vulneravel
     runtime: python
+    plan: free
     rootDir: arquivovulneravel
     buildCommand: pip install flask
     startCommand: python app.py
@@ -21,6 +23,7 @@ services:
   - type: web
     name: tcc-app-segura
     runtime: python
+    plan: free
     rootDir: arquivoseguro
     buildCommand: pip install flask bcrypt
     startCommand: python app.py
