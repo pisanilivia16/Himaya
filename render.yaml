@@ -6,6 +6,11 @@ services:
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: python main.py --saida html
+    envVars:
+      - key: ALVO_URL_VULNERAVEL
+        value: https://tcc-app-vulneravel.onrender.com/login
+      - key: ALVO_URL_SEGURA
+        value: https://tcc-app-segura.onrender.com/login
 
   # ── Aplicação Vulnerável (alvo dos testes) ───────────────
   - type: web
