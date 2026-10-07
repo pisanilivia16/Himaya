@@ -57,6 +57,28 @@
     button:hover { background: var(--azul-esc); box-shadow: 0 6px 24px rgba(26,108,245,0.4); }
     .rodape { margin-top: 20px; text-align: center; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--texto-fraco); }
     .rodape a { color: var(--azul); text-decoration: none; font-weight: 500; }
+
+    .mensagem {
+      display: none;
+      margin-bottom: 18px;
+      padding: 11px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+    .mensagem.erro {
+      display: block;
+      background: rgba(229,72,77,0.08);
+      border: 1px solid rgba(229,72,77,0.3);
+      color: #c53030;
+    }
+    .mensagem.sucesso {
+      display: block;
+      background: rgba(0,200,150,0.08);
+      border: 1px solid rgba(0,200,150,0.3);
+      color: #00a87a;
+    }
   </style>
 </head>
 <body>
@@ -72,7 +94,9 @@
       <p class="subtitulo">arquivoseguro · porta 5001</p>
     </div>
 
-    <form action="/cadastro" method="post">
+    <div id="mensagem" class="mensagem"></div>
+
+    <form id="form-cadastro">
       <div class="campo">
         <label for="usuario">Usuário</label>
         <input type="text" id="usuario" name="usuario" placeholder="escolha um usuário" autocomplete="username">
@@ -105,6 +129,27 @@
     </form>
 
     <p class="rodape">Já tem conta? <a href="/">Entrar</a></p>
+
+    <script>
+      document.getElementById('form-cadastro').addEventListener('submit', async function (ev) {
+        ev.preventDefault();
+        const caixa = document.getElementById('mensagem');
+        caixa.className = 'mensagem';
+        caixa.textContent = '';
+
+        const dados = new FormData(this);
+        try {
+          const resp = await fetch('/cadastro', { method: 'POST', body: dados });
+          const json = await resp.json();
+          caixa.textContent = json.mensagem;
+          caixa.className = 'mensagem ' + (json.sucesso ? 'sucesso' : 'erro');
+          if (json.sucesso) this.reset();
+        } catch (erro) {
+          caixa.textContent = 'Não foi possível conectar ao servidor. Tente novamente.';
+          caixa.className = 'mensagem erro';
+        }
+      });
+    </script>
   </div>
 </body>
 </html>

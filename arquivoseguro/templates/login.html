@@ -204,6 +204,28 @@
       font-size: 10px;
       color: #c0cbe0;
     }
+
+    .mensagem {
+      display: none;
+      margin-bottom: 18px;
+      padding: 11px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+    .mensagem.erro {
+      display: block;
+      background: rgba(229,72,77,0.08);
+      border: 1px solid rgba(229,72,77,0.3);
+      color: #c53030;
+    }
+    .mensagem.sucesso {
+      display: block;
+      background: rgba(0,200,150,0.08);
+      border: 1px solid rgba(0,200,150,0.3);
+      color: #00a87a;
+    }
   </style>
 </head>
 <body>
@@ -219,7 +241,9 @@
       <p class="subtitulo">arquivoseguro · porta 5001</p>
     </div>
 
-    <form action="/login" method="post">
+    <div id="mensagem" class="mensagem"></div>
+
+    <form id="form-login">
       <div class="campo">
         <label for="usuario">Usuário</label>
         <input type="text" id="usuario" name="usuario" placeholder="seu usuário" autocomplete="username">
@@ -232,6 +256,26 @@
 
       <button type="submit">Entrar com segurança</button>
     </form>
+
+    <script>
+      document.getElementById('form-login').addEventListener('submit', async function (ev) {
+        ev.preventDefault();
+        const caixa = document.getElementById('mensagem');
+        caixa.className = 'mensagem';
+        caixa.textContent = '';
+
+        const dados = new FormData(this);
+        try {
+          const resp = await fetch('/login', { method: 'POST', body: dados });
+          const json = await resp.json();
+          caixa.textContent = json.mensagem;
+          caixa.className = 'mensagem ' + (json.sucesso ? 'sucesso' : 'erro');
+        } catch (erro) {
+          caixa.textContent = 'Não foi possível conectar ao servidor. Tente novamente.';
+          caixa.className = 'mensagem erro';
+        }
+      });
+    </script>
 
     <div class="selos">
       <span class="selo">bcrypt</span>

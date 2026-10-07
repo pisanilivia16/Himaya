@@ -17,7 +17,7 @@ Vulnerabilidades presentes:
   - Sem proteção CSRF
 """
 
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 import sqlite3
 import os
 import sys
@@ -72,12 +72,12 @@ def inicializar_banco() -> None:
 def _pagina_resultado(sucesso: bool, titulo: str, mensagem: str,
                        status: int = 200, voltar_para: str = "/",
                        mostrar_login: bool = False):
-    """Renderiza a tela de resultado (sucesso/erro) com o status HTTP certo."""
-    return render_template(
-        "resultado.html",
-        sucesso=sucesso, titulo=titulo, mensagem=mensagem,
-        voltar_para=voltar_para, mostrar_login=mostrar_login,
-    ), status
+    """
+    Responde em JSON (sucesso/titulo/mensagem), com o status HTTP certo.
+    O front-end (login.html/cadastro.html) usa isso pra mostrar uma
+    mensagem inline, SEM navegar pra outra página.
+    """
+    return jsonify(sucesso=sucesso, titulo=titulo, mensagem=mensagem), status
 
 
 @app.route("/")
