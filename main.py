@@ -115,17 +115,26 @@ MODULOS_POR_ALVO = {"sql_injection", "brute_force", "input_validation"}
 
 
 def executar_modulo(nome_chave: str, logger: logging.Logger,
+<<<<<<< HEAD
                      url: str = None, nome_alvo: str = None,
                      kwargs_extra: dict = None) -> dict:
+=======
+                     url: str = None, nome_alvo: str = None) -> dict:
+>>>>>>> b50ed14019eb9504bf1af22dd69606035d770de9
     """
     Executa um módulo de teste e retorna um dicionário com:
     nome, resultado, severidade, tempo de execução e status.
 
     Se `url` for informado, o módulo é executado contra esse alvo
+<<<<<<< HEAD
     específico e `nome_alvo` é anexado ao nome de exibição e gravado
     no campo "alvo" do resultado, para que os relatórios possam ser
     separados por app depois. `kwargs_extra` repassa argumentos extras
     para a função do módulo (ex.: incluir_banco=False no sql_injection).
+=======
+    específico e `nome_alvo` é anexado ao nome de exibição, para que
+    o relatório mostre o resultado de cada app separadamente.
+>>>>>>> b50ed14019eb9504bf1af22dd69606035d770de9
     """
     nome_exibicao, funcao = MODULOS_DISPONIVEIS[nome_chave]
     if nome_alvo:
@@ -134,8 +143,12 @@ def executar_modulo(nome_chave: str, logger: logging.Logger,
 
     inicio = time.perf_counter()
     try:
+<<<<<<< HEAD
         extras = kwargs_extra or {}
         resultado = funcao(url, **extras) if url is not None else funcao(**extras)
+=======
+        resultado = funcao(url) if url is not None else funcao()
+>>>>>>> b50ed14019eb9504bf1af22dd69606035d770de9
         status = "ok"
     except Exception as e:
         resultado = f"ERRO - Falha inesperada: {e}"
@@ -430,6 +443,7 @@ def main():
     logger.info(f"Iniciando scan. Módulos: {modulos_para_rodar}")
     inicio_total = time.perf_counter()
 
+<<<<<<< HEAD
     modulos_por_alvo_selecionados = [c for c in modulos_para_rodar if c in MODULOS_POR_ALVO]
     modulos_gerais_selecionados   = [c for c in modulos_para_rodar if c not in MODULOS_POR_ALVO]
 
@@ -468,6 +482,19 @@ def main():
     else:
         # Sem alvos configurados (config.ALVOS vazio) — roda só os módulos gerais.
         for chave in modulos_gerais_selecionados:
+=======
+    # Executa cada módulo — os módulos de rede rodam uma vez por alvo
+    # (config.ALVOS), para testar app vulnerável e app segura de uma vez
+    resultados = []
+    for chave in modulos_para_rodar:
+        if chave in MODULOS_POR_ALVO:
+            for alvo in ALVOS:
+                resultado = executar_modulo(
+                    chave, logger, url=alvo["url"], nome_alvo=alvo["nome"]
+                )
+                resultados.append(resultado)
+        else:
+>>>>>>> b50ed14019eb9504bf1af22dd69606035d770de9
             resultado = executar_modulo(chave, logger)
             resultados.append(resultado)
 
