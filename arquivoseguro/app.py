@@ -12,6 +12,10 @@ Proteções implementadas:
   - Sanitização e validação de entrada (previne XSS e injeções)
   - Proteção CSRF via token de sessão
   - Headers de segurança HTTP
+  - Cadastro com política de senha (mín. 8 caracteres, maiúscula,
+    minúscula, número e caractere especial)
+  - Cadastro com validação de formato de e-mail e checagem de
+    duplicidade (usuário/e-mail já cadastrados)
 """
 
 from flask import Flask, render_template, request, session
@@ -90,6 +94,49 @@ def _entrada_valida(usuario: str, senha: str) -> tuple[bool, str]:
     return True, ""
 
 
+# ── Validação de e-mail e política de senha ─────────────────────────────────
+_EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _email_valido(email: str) -> bool:
+    """Valida formato básico de e-mail (usuario@dominio.tld)."""
+    return bool(_EMAIL_REGEX.match(email))
+
+
+def _senha_atende_politica(senha: str) -> tuple[bool, str]:
+    """
+    Verifica se a senha atende à política de segurança:
+      - Mínimo de 8 caracteres
+      - Ao menos 1 letra maiúscula, 1 minúscula, 1 número e 1 caractere especial
+
+    Retorna:
+        (atende, mensagem_de_erro)
+    """
+    if len(senha) < 8:
+        return False, "A senha deve ter no mínimo 8 caracteres."
+    if not re.search(r"[A-Z]", senha):
+        return False, "A senha deve conter ao menos uma letra maiúscula."
+    if not re.search(r"[a-z]", senha):
+        return False, "A senha deve conter ao menos uma letra minúscula."
+    if not re.search(r"[0-9]", senha):
+        return False, "A senha deve conter ao menos um número."
+    if not re.search(r"[^A-Za-z0-9]", senha):
+        return False, "A senha deve conter ao menos um caractere especial."
+    return True, ""
+# ────────────────────────────────────────────────────────────────────────────
+
+
+def _pagina_resultado(sucesso: bool, titulo: str, mensagem: str,
+                       status: int = 200, voltar_para: str = "/",
+                       mostrar_login: bool = False):
+    """Renderiza a tela de resultado (sucesso/erro) com o status HTTP certo."""
+    return render_template(
+        "resultado.html",
+        sucesso=sucesso, titulo=titulo, mensagem=mensagem,
+        voltar_para=voltar_para, mostrar_login=mostrar_login,
+    ), status
+
+
 def conectar() -> sqlite3.Connection:
     """Conecta ao banco de dados seguro."""
     con = sqlite3.connect(DB_PATH)
@@ -109,6 +156,7 @@ def inicializar_banco() -> None:
         CREATE TABLE IF NOT EXISTS usuarios (
             id        INTEGER PRIMARY KEY AUTOINCREMENT,
             usuario   TEXT UNIQUE NOT NULL,
+            email     TEXT UNIQUE NOT NULL,
             senha     TEXT NOT NULL,
             criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -116,16 +164,16 @@ def inicializar_banco() -> None:
 
     # Senhas armazenadas com bcrypt — proteção intencional
     usuarios = [
-        ("admin", "S3nh@F0rte#99"),
-        ("user1", "P@ssw0rd!2024"),
-        ("user2", "Tr0ub4dor&3"),
+        ("admin", "admin@seguro.local", "S3nh@F0rte#99"),
+        ("user1", "user1@seguro.local", "P@ssw0rd!2024"),
+        ("user2", "user2@seguro.local", "Tr0ub4dor&3"),
     ]
 
-    for usuario, senha_plain in usuarios:
+    for usuario, email, senha_plain in usuarios:
         hash_senha = bcrypt.hashpw(senha_plain.encode(), bcrypt.gensalt()).decode()
         cursor.execute(
-            "INSERT OR IGNORE INTO usuarios (usuario, senha) VALUES (?, ?)",
-            (usuario, hash_senha)
+            "INSERT OR IGNORE INTO usuarios (usuario, email, senha) VALUES (?, ?, ?)",
+            (usuario, email, hash_senha)
         )
 
     con.commit()
@@ -166,7 +214,11 @@ def login():
 
     # ── 1. Rate limiting ────────────────────────────────────────────────────
     if _verificar_rate_limit(ip):
-        return "Muitas tentativas. Aguarde antes de tentar novamente.", 429
+        return _pagina_resultado(
+            False, "Muitas tentativas",
+            "Você excedeu o limite de tentativas. Aguarde um momento antes de tentar novamente.",
+            status=429, voltar_para="/",
+        )
     # ────────────────────────────────────────────────────────────────────────
 
     usuario = _sanitizar_entrada(request.form.get("usuario", ""))
@@ -176,7 +228,7 @@ def login():
     valido, erro = _entrada_valida(usuario, senha)
     if not valido:
         _registrar_tentativa(ip)
-        return erro, 400
+        return _pagina_resultado(False, "Entrada inválida", erro, status=400, voltar_para="/")
     # ────────────────────────────────────────────────────────────────────────
 
     con = None
@@ -194,7 +246,10 @@ def login():
         resultado = cursor.fetchone()
 
     except Exception:
-        return "Erro interno. Tente novamente.", 500
+        return _pagina_resultado(
+            False, "Erro interno", "Algo deu errado. Tente novamente.",
+            status=500, voltar_para="/",
+        )
     finally:
         if con:
             con.close()
@@ -204,14 +259,115 @@ def login():
         try:
             if bcrypt.checkpw(senha.encode(), resultado["senha"].encode()):
                 session.clear()  # regenera sessão após login
-                return "Login realizado com segurança!"
+                return _pagina_resultado(
+                    True, "Login realizado com segurança!",
+                    f"Bem-vindo(a), {usuario}. Sua autenticação passou por rate limiting, "
+                    "validação de entrada, query parametrizada e verificação bcrypt.",
+                )
         except Exception:
             pass
     # ────────────────────────────────────────────────────────────────────────
 
     # Registra tentativa falha
     _registrar_tentativa(ip)
-    return "Usuário ou senha incorretos"
+    return _pagina_resultado(
+        False, "Usuário ou senha incorretos",
+        "Verifique seus dados e tente novamente.",
+        status=401, voltar_para="/",
+    )
+
+
+@app.route("/cadastro")
+def cadastro_form():
+    if "csrf_token" not in session:
+        session["csrf_token"] = secrets.token_hex(16)
+    return render_template("cadastro.html", csrf_token=session["csrf_token"])
+
+
+@app.route("/cadastro", methods=["POST"])
+def cadastro():
+    """
+    Rota de cadastro SEGURA.
+
+    Proteções:
+      1. Validação de presença e tamanho dos campos.
+      2. Validação de formato de e-mail.
+      3. Confirmação de senha (os dois campos devem bater).
+      4. Política de senha: mín. 8 caracteres, maiúscula, minúscula,
+         número e caractere especial.
+      5. Checagem de duplicidade (usuário/e-mail já cadastrados).
+      6. Hash bcrypt antes de armazenar.
+      7. Query parametrizada (sem concatenação).
+    """
+    usuario         = _sanitizar_entrada(request.form.get("usuario", ""))
+    email           = _sanitizar_entrada(request.form.get("email", ""), max_len=120)
+    senha           = request.form.get("senha", "")[:128]
+    confirmar_senha = request.form.get("confirmar_senha", "")[:128]
+
+    # ── 1. Presença e tamanho ───────────────────────────────────────────────
+    if not usuario or not email or not senha:
+        return _pagina_resultado(False, "Dados incompletos", "Preencha todos os campos.",
+                                  status=400, voltar_para="/cadastro")
+    if len(usuario) > 64:
+        return _pagina_resultado(False, "Usuário muito longo", "Escolha um usuário mais curto.",
+                                  status=400, voltar_para="/cadastro")
+    # ────────────────────────────────────────────────────────────────────────
+
+    # ── 2. Formato de e-mail ─────────────────────────────────────────────────
+    if not _email_valido(email):
+        return _pagina_resultado(False, "E-mail inválido", "Digite um e-mail no formato nome@dominio.com.",
+                                  status=400, voltar_para="/cadastro")
+    # ────────────────────────────────────────────────────────────────────────
+
+    # ── 3. Confirmação de senha ──────────────────────────────────────────────
+    if senha != confirmar_senha:
+        return _pagina_resultado(False, "Senhas não coincidem", "Os dois campos de senha precisam ser iguais.",
+                                  status=400, voltar_para="/cadastro")
+    # ────────────────────────────────────────────────────────────────────────
+
+    # ── 4. Política de senha ─────────────────────────────────────────────────
+    senha_ok, erro_senha = _senha_atende_politica(senha)
+    if not senha_ok:
+        return _pagina_resultado(False, "Senha fora da política", erro_senha,
+                                  status=400, voltar_para="/cadastro")
+    # ────────────────────────────────────────────────────────────────────────
+
+    con = None
+    try:
+        con = conectar()
+        cursor = con.cursor()
+
+        # ── 5. Checagem de duplicidade ──────────────────────────────────────
+        cursor.execute(
+            "SELECT 1 FROM usuarios WHERE usuario = ? OR email = ?",
+            (usuario, email)
+        )
+        if cursor.fetchone():
+            return _pagina_resultado(False, "Já cadastrado", "Esse usuário ou e-mail já existe. Tente entrar em vez disso.",
+                                      status=409, voltar_para="/cadastro")
+        # ────────────────────────────────────────────────────────────────────
+
+        # ── 6 e 7. bcrypt + query parametrizada ──────────────────────────────
+        hash_senha = bcrypt.hashpw(senha.encode(), bcrypt.gensalt()).decode()
+        cursor.execute(
+            "INSERT INTO usuarios (usuario, email, senha) VALUES (?, ?, ?)",
+            (usuario, email, hash_senha)
+        )
+        con.commit()
+        # ────────────────────────────────────────────────────────────────────
+
+    except Exception:
+        return _pagina_resultado(False, "Erro interno", "Algo deu errado. Tente novamente.",
+                                  status=500, voltar_para="/cadastro")
+    finally:
+        if con:
+            con.close()
+
+    return _pagina_resultado(
+        True, "Cadastro realizado com sucesso!",
+        f"Conta de {usuario} criada com senha protegida por bcrypt. Agora você já pode entrar.",
+        mostrar_login=True,
+    )
 
 
 # Inicializa o banco ao subir a aplicação

@@ -99,23 +99,33 @@ def _testar_sql_web(url: str, payloads: list[str]) -> list[str]:
     return vulneraveis
 
 
-def testar_sql_injection(url: str = URL_ALVO) -> str:
+def testar_sql_injection(url: str = URL_ALVO, incluir_banco: bool = True) -> str:
     """
-    Executa testes de SQL Injection no banco e na camada web.
+    Executa testes de SQL Injection na camada web e, opcionalmente, no banco.
+
+    O vetor "banco" testa uma query concatenada contra o banco de teste
+    compartilhado (core/database.py) — ele NÃO depende de `url`, então dá
+    sempre o mesmo resultado não importa qual app está sendo testada. Ao
+    testar múltiplos alvos na mesma execução, inclua o vetor banco
+    (incluir_banco=True) só na primeira chamada; nas seguintes, passe
+    incluir_banco=False para testar apenas o vetor web, que é o que de
+    fato varia por alvo.
 
     Retorna:
         str com prefixo de severidade, vetor de ataque (banco/web/ambos)
         e exemplo de payload que funcionou.
     """
-    vuln_banco = _testar_sql_banco(PAYLOADS)
+    vuln_banco = _testar_sql_banco(PAYLOADS) if incluir_banco else []
     vuln_web   = _testar_sql_web(url, PAYLOADS)
 
     # Trata erros de infraestrutura
-    erro_banco = any(p.startswith("ERRO_BANCO:") for p in vuln_banco)
+    erro_banco = incluir_banco and any(p.startswith("ERRO_BANCO:") for p in vuln_banco)
     erro_web   = any(p.startswith("ERRO_WEB:")   for p in vuln_web)
 
     if erro_banco and erro_web:
         return "ERRO - Não foi possível testar SQL Injection (banco e web inacessíveis)"
+    if not incluir_banco and erro_web:
+        return "ERRO - Não foi possível testar SQL Injection (web inacessível)"
 
     # Filtra payloads reais (sem as mensagens de erro)
     vuln_banco_real = [p for p in vuln_banco if not p.startswith("ERRO_BANCO:")]
@@ -124,7 +134,7 @@ def testar_sql_injection(url: str = URL_ALVO) -> str:
     ambos_seguros = not vuln_banco_real and not vuln_web_real
     if ambos_seguros:
         vetores_ok = []
-        if not erro_banco: vetores_ok.append("banco")
+        if incluir_banco and not erro_banco: vetores_ok.append("banco")
         if not erro_web:   vetores_ok.append("web")
         return f"Seguro contra SQL Injection ({', '.join(vetores_ok)} testado(s))"
 

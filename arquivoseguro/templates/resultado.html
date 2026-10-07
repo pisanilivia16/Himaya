@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ titulo }} — Sistema Seguro</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --azul: #1a6cf5; --azul-esc: #0f4db5; --verde: #00c896; --vermelho: #e5484d;
+      --fundo: #f0f4ff; --painel: #ffffff; --borda: #dce4f5;
+      --texto: #0f1b33; --texto-fraco: #6b7fa3;
+      --sombra: rgba(26,108,245,0.12);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh; background: var(--fundo);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .painel {
+      width: 400px; background: var(--painel); border: 1px solid var(--borda);
+      border-radius: 16px; padding: 44px 40px 40px; text-align: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.04), 0 20px 60px var(--sombra);
+    }
+    .icone {
+      width: 64px; height: 64px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 24px; font-size: 30px;
+      background: {{ 'rgba(0,200,150,0.12)' if sucesso else 'rgba(229,72,77,0.12)' }};
+      color: {{ 'var(--verde)' if sucesso else 'var(--vermelho)' }};
+    }
+    h1 { font-size: 20px; font-weight: 700; color: var(--texto); margin-bottom: 10px; }
+    p.mensagem { font-size: 14px; color: var(--texto-fraco); line-height: 1.6; margin-bottom: 28px; }
+    .acoes { display: flex; flex-direction: column; gap: 10px; }
+    a.botao {
+      display: block; padding: 13px; border-radius: 10px; text-decoration: none;
+      font-size: 14px; font-weight: 700; font-family: 'DM Sans', sans-serif;
+    }
+    a.primario { background: var(--azul); color: #fff; }
+    a.primario:hover { background: var(--azul-esc); }
+    a.secundario { background: #f7f9ff; color: var(--texto-fraco); border: 1.5px solid var(--borda); }
+    .rodape { margin-top: 24px; font-family: 'DM Mono', monospace; font-size: 10px; color: #c0cbe0; }
+  </style>
+</head>
+<body>
+  <div class="painel">
+    <div class="icone">{{ '✓' if sucesso else '✕' }}</div>
+    <h1>{{ titulo }}</h1>
+    <p class="mensagem">{{ mensagem }}</p>
+
+    <div class="acoes">
+      {% if sucesso and mostrar_login %}
+        <a class="botao primario" href="/">Ir para o login</a>
+      {% elif not sucesso %}
+        <a class="botao primario" href="{{ voltar_para }}">Tentar novamente</a>
+      {% endif %}
+    </div>
+
+    <p class="rodape">arquivoseguro · TCC — Scanner de Segurança</p>
+  </div>
+</body>
+</html>

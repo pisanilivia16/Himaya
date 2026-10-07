@@ -14,6 +14,7 @@ from datetime import datetime
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from config import ALVOS
 from scanner.modulos.sql_injection import testar_sql_injection
 from scanner.modulos.brute_force import testar_bruteforce
 from scanner.modulos.password_strength import testar_senha_fraca
@@ -107,17 +108,34 @@ MODULOS_DISPONIVEIS = {
     "input_validation": ("Validação de Entrada", testar_validacao_entrada),
 }
 
-def executar_modulo(nome_chave: str, logger: logging.Logger) -> dict:
+# Módulos que atacam uma aplicação via HTTP e, portanto, rodam uma vez
+# POR ALVO (config.ALVOS) — os outros (password_strength, password_hash)
+# testam direto o banco de dados e rodam uma única vez.
+MODULOS_POR_ALVO = {"sql_injection", "brute_force", "input_validation"}
+
+
+def executar_modulo(nome_chave: str, logger: logging.Logger,
+                     url: str = None, nome_alvo: str = None,
+                     kwargs_extra: dict = None) -> dict:
     """
     Executa um módulo de teste e retorna um dicionário com:
     nome, resultado, severidade, tempo de execução e status.
+
+    Se `url` for informado, o módulo é executado contra esse alvo
+    específico e `nome_alvo` é anexado ao nome de exibição e gravado
+    no campo "alvo" do resultado, para que os relatórios possam ser
+    separados por app depois. `kwargs_extra` repassa argumentos extras
+    para a função do módulo (ex.: incluir_banco=False no sql_injection).
     """
     nome_exibicao, funcao = MODULOS_DISPONIVEIS[nome_chave]
+    if nome_alvo:
+        nome_exibicao = f"{nome_exibicao} ({nome_alvo})"
     logger.debug(f"Iniciando módulo: {nome_exibicao}")
 
     inicio = time.perf_counter()
     try:
-        resultado = funcao()
+        extras = kwargs_extra or {}
+        resultado = funcao(url, **extras) if url is not None else funcao(**extras)
         status = "ok"
     except Exception as e:
         resultado = f"ERRO - Falha inesperada: {e}"
@@ -137,6 +155,7 @@ def executar_modulo(nome_chave: str, logger: logging.Logger) -> dict:
         "severidade": severidade,
         "duracao_s":  duracao,
         "status":     status,
+        "alvo":       nome_alvo,   # None = módulo geral, não específico de um app
     }
 
 
@@ -184,12 +203,15 @@ def calcular_score(resultados: list[dict]) -> dict:
 #  Geração de relatórios
 # ─────────────────────────────────────────────
 
-def gerar_relatorio_txt(resultados: list[dict], score: dict, caminho: str):
-    """Gera relatório em texto simples."""
+def gerar_relatorio_txt(resultados: list[dict], score: dict, caminho: str,
+                         titulo: str = None):
+    """Gera relatório em texto simples. `titulo` identifica o alvo (app) deste relatório."""
     with open(caminho, "w", encoding="utf-8") as f:
         f.write("=" * 50 + "\n")
         f.write("     RELATÓRIO DE SEGURANÇA - TCC\n")
         f.write("=" * 50 + "\n\n")
+        if titulo:
+            f.write(f"Alvo            : {titulo}\n")
         f.write(f"Data da análise : {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
         f.write(f"Score geral     : {score['score']}% — {score['classificacao']}\n")
         f.write(f"Módulos testados: {score['total']}\n\n")
@@ -205,12 +227,14 @@ def gerar_relatorio_txt(resultados: list[dict], score: dict, caminho: str):
                 f"Médios: {score['medios']} | Seguros: {score['seguros']}\n")
 
 
-def gerar_relatorio_json(resultados: list[dict], score: dict, caminho: str):
-    """Gera relatório em JSON estruturado."""
+def gerar_relatorio_json(resultados: list[dict], score: dict, caminho: str,
+                          titulo: str = None):
+    """Gera relatório em JSON estruturado. `titulo` identifica o alvo (app) deste relatório."""
     payload = {
         "metadata": {
             "data_analise": datetime.now().isoformat(),
             "versao_scanner": "1.0.0",
+            "alvo": titulo,
         },
         "score": score,
         "resultados": resultados,
@@ -219,8 +243,9 @@ def gerar_relatorio_json(resultados: list[dict], score: dict, caminho: str):
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
 
-def gerar_relatorio_html(resultados: list[dict], score: dict, caminho: str):
-    """Gera relatório visual em HTML com tabela colorida por severidade."""
+def gerar_relatorio_html(resultados: list[dict], score: dict, caminho: str,
+                          titulo: str = None):
+    """Gera relatório visual em HTML com tabela colorida por severidade. `titulo` identifica o alvo (app) deste relatório."""
 
     COR_SEVERIDADE = {
         "CRÍTICO": ("#fde8e8", "#c53030", "#fff5f5"),
@@ -405,11 +430,46 @@ def main():
     logger.info(f"Iniciando scan. Módulos: {modulos_para_rodar}")
     inicio_total = time.perf_counter()
 
-    # Executa cada módulo
+    modulos_por_alvo_selecionados = [c for c in modulos_para_rodar if c in MODULOS_POR_ALVO]
+    modulos_gerais_selecionados   = [c for c in modulos_para_rodar if c not in MODULOS_POR_ALVO]
+
+    # Executa como SCANS SEPARADOS, em sequência: primeiro um scan completo
+    # na aplicação vulnerável, depois um scan completo na aplicação segura —
+    # em vez de intercalar módulo a módulo. Os módulos gerais (que não
+    # dependem de URL, ex. password_strength/password_hash) rodam dentro
+    # do primeiro scan, já que não pertencem a nenhum alvo específico.
     resultados = []
-    for chave in modulos_para_rodar:
-        resultado = executar_modulo(chave, logger)
-        resultados.append(resultado)
+    if ALVOS:
+        for indice, alvo in enumerate(ALVOS):
+            print(f"\n▶ Scan {indice + 1}/{len(ALVOS)}: {alvo['nome']} ({alvo['url']})")
+            logger.info(f"Iniciando scan {indice + 1}/{len(ALVOS)}: {alvo['nome']}")
+
+            for chave in modulos_por_alvo_selecionados:
+                if chave == "sql_injection":
+                    # O vetor "banco" do sql_injection não depende do alvo
+                    # (testa sempre o mesmo banco compartilhado) — só faz
+                    # sentido rodar uma vez, no primeiro scan.
+                    resultado = executar_modulo(
+                        chave, logger, url=alvo["url"], nome_alvo=alvo["nome"],
+                        kwargs_extra={"incluir_banco": indice == 0},
+                    )
+                else:
+                    resultado = executar_modulo(
+                        chave, logger, url=alvo["url"], nome_alvo=alvo["nome"]
+                    )
+                resultados.append(resultado)
+
+            # Módulos gerais (não específicos de alvo) rodam só uma vez,
+            # junto do primeiro scan.
+            if indice == 0:
+                for chave in modulos_gerais_selecionados:
+                    resultado = executar_modulo(chave, logger)
+                    resultados.append(resultado)
+    else:
+        # Sem alvos configurados (config.ALVOS vazio) — roda só os módulos gerais.
+        for chave in modulos_gerais_selecionados:
+            resultado = executar_modulo(chave, logger)
+            resultados.append(resultado)
 
     fim_total = time.perf_counter()
     duracao_total = round(fim_total - inicio_total, 2)
@@ -419,7 +479,9 @@ def main():
     score = calcular_score(resultados)
     exibir_resultados(resultados, score)
 
-    # Gera relatórios
+    # Gera relatórios — um conjunto de arquivos POR ALVO testado, para
+    # não misturar os resultados de app vulnerável e app segura no
+    # mesmo arquivo.
     os.makedirs("reports", exist_ok=True)
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
 
@@ -427,27 +489,52 @@ def main():
         ["txt", "html", "json"] if args.saida == "todos" else [args.saida]
     )
 
-    caminhos = {}
-    if "txt" in formatos:
-        caminho = f"reports/relatorio_{timestamp}.txt"
-        gerar_relatorio_txt(resultados, score, caminho)
-        caminhos["txt"] = caminho
+    def slugificar(nome: str) -> str:
+        troca = str.maketrans("áàâãéêíóôõúüç", "aaaaeeiooouuc")
+        return nome.lower().translate(troca).replace(" ", "_")
 
-    if "json" in formatos:
-        caminho = f"reports/relatorio_{timestamp}.json"
-        gerar_relatorio_json(resultados, score, caminho)
-        caminhos["json"] = caminho
+    # Nomes dos alvos presentes nos resultados desta execução (na ordem
+    # de config.ALVOS). Resultados sem módulos por-alvo (ex.: rodando só
+    # --modulo password_strength) ainda geram um único relatório "geral".
+    nomes_alvos = [a["nome"] for a in ALVOS if any(
+        r["alvo"] == a["nome"] for r in resultados
+    )]
+    grupos = nomes_alvos or [None]   # None = relatório único "geral"
 
-    if "html" in formatos:
-        caminho = f"reports/relatorio_{timestamp}.html"
-        gerar_relatorio_html(resultados, score, caminho)
-        caminhos["html"] = caminho
+    caminhos_gerados = []  # [(formato, titulo_ou_None, caminho)]
+
+    for nome_alvo in grupos:
+        # Resultados deste alvo: os específicos dele + os gerais (alvo=None,
+        # ex. password_strength/password_hash), que valem para qualquer app.
+        resultados_grupo = [
+            r for r in resultados if r["alvo"] in (nome_alvo, None)
+        ]
+        score_grupo = calcular_score(resultados_grupo)
+
+        sufixo = f"_{slugificar(nome_alvo)}" if nome_alvo else ""
+        prefixo = f"reports/relatorio{sufixo}_{timestamp}"
+
+        if "txt" in formatos:
+            caminho = f"{prefixo}.txt"
+            gerar_relatorio_txt(resultados_grupo, score_grupo, caminho, titulo=nome_alvo)
+            caminhos_gerados.append(("txt", nome_alvo, caminho))
+
+        if "json" in formatos:
+            caminho = f"{prefixo}.json"
+            gerar_relatorio_json(resultados_grupo, score_grupo, caminho, titulo=nome_alvo)
+            caminhos_gerados.append(("json", nome_alvo, caminho))
+
+        if "html" in formatos:
+            caminho = f"{prefixo}.html"
+            gerar_relatorio_html(resultados_grupo, score_grupo, caminho, titulo=nome_alvo)
+            caminhos_gerados.append(("html", nome_alvo, caminho))
 
     print("  Relatórios gerados:")
-    for fmt, path in caminhos.items():
-        print(f"    [{fmt.upper()}] {path}")
+    for fmt, nome_alvo, path in caminhos_gerados:
+        rotulo = nome_alvo or "Geral"
+        print(f"    [{fmt.upper()}] {rotulo}: {path}")
     print()
 
 
 if __name__ == "__main__":
-    main().
+    main()

@@ -7,10 +7,13 @@ Descrição: Aplicação Flask INTENCIONALMENTE VULNERÁVEL para fins acadêmico
    NÃO utilizar em produção ou em ambientes reais.
 
 Vulnerabilidades presentes:
-  - SQL Injection via concatenação de string na query de login
+  - SQL Injection via concatenação de string na query de login e cadastro
   - Ausência de hash nas senhas (armazenadas em plaintext)
   - Sem rate limiting (vulnerável a força bruta)
   - Sem validação ou sanitização de entrada
+  - Cadastro sem política de senha (aceita vazia, curta, sem complexidade)
+  - Cadastro sem validação de formato de e-mail
+  - Cadastro sem checagem de duplicidade (usuário/e-mail)
   - Sem proteção CSRF
 """
 
@@ -39,28 +42,42 @@ def inicializar_banco() -> None:
     con = conectar()
     cursor = con.cursor()
 
+    # Sem UNIQUE em e-mail de propósito — o cadastro vulnerável não
+    # impede duplicidade.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS usuarios (
             id      INTEGER PRIMARY KEY AUTOINCREMENT,
             usuario TEXT UNIQUE NOT NULL,
+            email   TEXT,
             senha   TEXT NOT NULL
         )
     """)
 
     # Senhas armazenadas em plaintext — vulnerabilidade intencional
     usuarios = [
-        ("admin",  "123456"),
-        ("user1",  "abc123"),
-        ("root",   "root"),
+        ("admin",  "admin@vulneravel.local",  "123456"),
+        ("user1",  "user1@vulneravel.local",  "abc123"),
+        ("root",   "root@vulneravel.local",   "root"),
     ]
 
     cursor.executemany(
-        "INSERT OR IGNORE INTO usuarios (usuario, senha) VALUES (?, ?)",
+        "INSERT OR IGNORE INTO usuarios (usuario, email, senha) VALUES (?, ?, ?)",
         usuarios
     )
 
     con.commit()
     con.close()
+
+
+def _pagina_resultado(sucesso: bool, titulo: str, mensagem: str,
+                       status: int = 200, voltar_para: str = "/",
+                       mostrar_login: bool = False):
+    """Renderiza a tela de resultado (sucesso/erro) com o status HTTP certo."""
+    return render_template(
+        "resultado.html",
+        sucesso=sucesso, titulo=titulo, mensagem=mensagem,
+        voltar_para=voltar_para, mostrar_login=mostrar_login,
+    ), status
 
 
 @app.route("/")
@@ -95,9 +112,63 @@ def login():
     con.close()
 
     if resultado:
-        return "Login realizado!"
+        return _pagina_resultado(
+            True, "Login realizado!",
+            f"Você entrou como '{usuario}'. Esse app não valida credenciais com segurança "
+            "— por isso o scanner consegue burlá-lo.",
+        )
 
-    return "Usuário ou senha incorretos"
+    return _pagina_resultado(
+        False, "Usuário ou senha incorretos",
+        "Verifique seus dados e tente novamente.",
+        status=401, voltar_para="/",
+    )
+
+
+@app.route("/cadastro")
+def cadastro_form():
+    return render_template("cadastro.html")
+
+
+@app.route("/cadastro", methods=["POST"])
+def cadastro():
+    """
+    Rota de cadastro VULNERÁVEL.
+
+    Vulnerabilidades:
+      1. Nenhuma política de senha: aceita vazia, curta, sem complexidade.
+      2. Nenhuma validação de formato de e-mail.
+      3. Nenhuma checagem de usuário/e-mail duplicado.
+      4. Senha armazenada em plaintext.
+      5. SQL Injection: INSERT montado por concatenação de string.
+    """
+    usuario = request.form.get("usuario", "")
+    email   = request.form.get("email", "")
+    senha   = request.form.get("senha", "")
+
+    con = conectar()
+    cursor = con.cursor()
+
+    # ── VULNERÁVEL: INSERT por concatenação, sem validação alguma ──────────
+    query = f"INSERT INTO usuarios (usuario, email, senha) VALUES ('{usuario}', '{email}', '{senha}')"
+    try:
+        cursor.execute(query)
+        con.commit()
+    except Exception as e:
+        con.close()
+        return _pagina_resultado(
+            False, "Erro ao cadastrar", str(e),
+            status=500, voltar_para="/cadastro",
+        )
+    # ────────────────────────────────────────────────────────────────────────
+
+    con.close()
+    return _pagina_resultado(
+        True, "Cadastro realizado!",
+        f"Conta de '{usuario}' criada — sem checar política de senha, "
+        "formato de e-mail ou duplicidade. A senha foi gravada em plaintext.",
+        mostrar_login=True,
+    )
 
 
 # Inicializa o banco ao subir a aplicação
