@@ -15,6 +15,7 @@ from datetime import datetime
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from config import ALVOS
+from core.database import inicializar_banco
 from scanner.modulos.sql_injection import testar_sql_injection
 from scanner.modulos.brute_force import testar_bruteforce
 from scanner.modulos.password_strength import testar_senha_fraca
@@ -426,6 +427,9 @@ def main():
         modulos_para_rodar = list(MODULOS_DISPONIVEIS.keys())
     else:
         modulos_para_rodar = [args.modulo]
+
+    # Os módulos de hash e força de senha leem o banco teste.db: cria antes do scan.
+    inicializar_banco()
 
     logger.info(f"Iniciando scan. Módulos: {modulos_para_rodar}")
     inicio_total = time.perf_counter()

@@ -11,6 +11,9 @@
 # Aplicações web alvo dos testes
 flask>=3.0.0
 
+# Servidor de produção (Render)
+gunicorn>=22.0.0
+
 # Hash seguro de senhas (módulos: password_strength, password_hash_check, arquivoseguro)
 bcrypt>=4.1.0
 

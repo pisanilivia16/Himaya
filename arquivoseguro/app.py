@@ -10,7 +10,6 @@ Proteções implementadas:
   - Senhas armazenadas com bcrypt (previne exposição de plaintext)
   - Rate limiting por IP (previne força bruta)
   - Sanitização e validação de entrada (previne XSS e injeções)
-  - Proteção CSRF via token de sessão
   - Headers de segurança HTTP
   - Cadastro com política de senha (mín. 8 caracteres, maiúscula,
     minúscula, número e caractere especial)
@@ -19,6 +18,7 @@ Proteções implementadas:
 """
 
 from flask import Flask, render_template, request, session, jsonify
+from werkzeug.middleware.proxy_fix import ProxyFix
 import sqlite3
 import bcrypt
 import os
@@ -31,9 +31,18 @@ from collections import defaultdict
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 app = Flask(__name__)
-app.secret_key = secrets.token_hex(32)  # chave segura gerada a cada inicialização
+app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "teste_seguro.db")
+# No Render a aplicação roda atrás de um proxy: sem o ProxyFix, request.remote_addr
+# seria sempre o IP do proxy e o rate limiting bloquearia TODOS os usuários juntos.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
+
+# Banco dentro da própria pasta da aplicação (funciona com rootDir no Render).
+# Pode ser trocado pela variável de ambiente DB_PATH.
+DB_PATH = os.environ.get(
+    "DB_PATH",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "teste_seguro.db"),
+)
 
 # ── Rate limiting simples em memória ────────────────────────────────────────
 # Dicionário: ip -> [(timestamp), ...]
@@ -152,6 +161,12 @@ def inicializar_banco() -> None:
     con = conectar()
     cursor = con.cursor()
 
+    # Banco antigo (sem coluna e-mail) faz cadastro e login darem erro 500.
+    # Como são dados de demonstração, recria a tabela no esquema atual.
+    colunas = [c[1] for c in cursor.execute("PRAGMA table_info(usuarios)").fetchall()]
+    if colunas and "email" not in colunas:
+        cursor.execute("DROP TABLE usuarios")
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS usuarios (
             id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -208,7 +223,6 @@ def login():
       2. Validação de entrada: rejeita padrões suspeitos antes do banco.
       3. Query parametrizada: elimina risco de SQL Injection.
       4. bcrypt: senhas comparadas com hash, nunca em plaintext.
-      5. CSRF: valida token da sessão antes de processar.
     """
     ip = request.remote_addr
 
@@ -374,6 +388,8 @@ def cadastro():
 inicializar_banco()
 
 if __name__ == "__main__":
-    print("\n✓  Aplicação SEGURA rodando na porta 5001")
+    # O Render informa a porta pela variável PORT e exige host 0.0.0.0.
+    port = int(os.environ.get("PORT", 5001))
+    print(f"\n✓  Aplicação SEGURA rodando na porta {port}")
     print("   Proteções: bcrypt + rate limiting + queries parametrizadas\n")
-    app.run(port=5001, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=False)

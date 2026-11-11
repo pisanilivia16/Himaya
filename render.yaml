@@ -1,34 +1,47 @@
+# Três serviços no Render: o scanner (painel com relatórios) e as duas
+# aplicações-alvo. Todos usam gunicorn, que escuta em 0.0.0.0:$PORT
+# (exigência do Render). Use 1 worker: o banco é SQLite e o rate limiting
+# do app seguro fica em memória.
 services:
-  # ── Scanner de Segurança ─────────────────────────────────
+  # ── Scanner de Segurança (painel + relatórios) ────────────────────────────
   - type: web
     name: tcc-scanner
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: python main.py --saida html
+    # server.py (e não main.py): o main.py é um script que roda e termina,
+    # então o Render derrubava o serviço e nenhum link ficava disponível.
+    startCommand: gunicorn server:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.3
       - key: ALVO_URL_VULNERAVEL
         value: https://tcc-app-vulneravel.onrender.com/login
       - key: ALVO_URL_SEGURA
         value: https://tcc-app-segura.onrender.com/login
 
-  # ── Aplicação Vulnerável (alvo dos testes) ───────────────
+  # ── Aplicação Vulnerável (alvo dos testes) ────────────────────────────────
   - type: web
     name: tcc-app-vulneravel
     runtime: python
     plan: free
     rootDir: arquivovulneravel
-    buildCommand: pip install flask
-    startCommand: python app.py
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4
     envVars:
-      - key: FLASK_ENV
-        value: development
+      - key: PYTHON_VERSION
+        value: 3.12.3
 
-  # ── Aplicação Segura (versão corrigida) ──────────────────
+  # ── Aplicação Segura (versão corrigida) ───────────────────────────────────
   - type: web
     name: tcc-app-segura
     runtime: python
     plan: free
     rootDir: arquivoseguro
-    buildCommand: pip install flask bcrypt
-    startCommand: python app.py
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.3
+      - key: SECRET_KEY
+        generateValue: true
