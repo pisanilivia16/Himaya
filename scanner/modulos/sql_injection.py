@@ -27,14 +27,27 @@ PAYLOADS = [
     "') OR ('1'='1",
 ]
 
-# Indicadores de sucesso na resposta web
+# Indicadores de sucesso na resposta web (fallback para respostas que não são JSON).
+# Atenção: NÃO usar a palavra "sucesso" aqui — as apps respondem em JSON com o
+# campo "sucesso": false, e isso gerava falso positivo em toda tentativa.
 INDICADORES_SUCESSO = [
     "login realizado",
     "bem-vindo",
     "dashboard",
     "logout",
-    "sucesso",
 ]
+
+
+def _login_bem_sucedido(resposta) -> bool:
+    """Lê o campo "sucesso" do JSON; se não for JSON, usa os indicadores de texto."""
+    try:
+        dados = resposta.json()
+        if isinstance(dados, dict) and "sucesso" in dados:
+            return dados["sucesso"] is True
+    except ValueError:
+        pass
+    texto = resposta.text.lower()
+    return any(ind in texto for ind in INDICADORES_SUCESSO)
 
 
 def _testar_sql_banco(payloads: list[str]) -> list[str]:
@@ -84,7 +97,7 @@ def _testar_sql_web(url: str, payloads: list[str]) -> list[str]:
             resposta = requests.post(
                 url,
                 data={"usuario": "admin", "senha": payload},
-                timeout=5,
+                timeout=30,  # tolera app acordando no Render
                 allow_redirects=True,
             )
         except requests.exceptions.ConnectionError:
@@ -92,8 +105,7 @@ def _testar_sql_web(url: str, payloads: list[str]) -> list[str]:
         except requests.exceptions.Timeout:
             return [f"ERRO_WEB:timeout em {url}"]
 
-        texto = resposta.text.lower()
-        if any(ind in texto for ind in INDICADORES_SUCESSO):
+        if _login_bem_sucedido(resposta):
             vulneraveis.append(payload)
 
     return vulneraveis
