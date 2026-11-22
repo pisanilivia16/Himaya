@@ -14,6 +14,9 @@ flask>=3.0.0
 # Hash seguro de senhas (módulos: password_strength, password_hash_check, arquivoseguro)
 bcrypt>=4.1.0
 
+# Validação rigorosa de e-mail (arquivoseguro)
+email-validator>=2.1.0
+
 # Requisições HTTP para testes web (módulos: brute_force, input_validation, sql_injection, web_sql_injection)
 requests>=2.31.0
 

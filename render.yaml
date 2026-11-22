@@ -30,5 +30,5 @@ services:
     runtime: python
     plan: free
     rootDir: arquivoseguro
-    buildCommand: pip install flask bcrypt
+    buildCommand: pip install flask bcrypt email-validator
     startCommand: python app.py
