@@ -8,9 +8,9 @@ services:
     startCommand: gunicorn server:app --workers 1 --timeout 120
     envVars:
       - key: ALVO_URL_VULNERAVEL
-        value: https://tcc-app-vulneravel.onrender.com/login
+        value: https://app-vulneravel.onrender.com/login
       - key: ALVO_URL_SEGURA
-        value: https://tcc-app-segura.onrender.com/login
+        value: https://himaya-app-segura.onrender.com/login
 
   # Aplicação vulnerável (alvo dos testes)
   - type: web

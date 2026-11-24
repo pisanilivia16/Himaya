@@ -18,14 +18,14 @@ ALVOS = [
         "nome": "App Vulnerável",
         "url": os.getenv(
             "ALVO_URL_VULNERAVEL",
-            "https://tcc-app-vulneravel.onrender.com/login",
+            "https://app-vulneravel.onrender.com/login",
         ),
     },
     {
         "nome": "App Segura",
         "url": os.getenv(
             "ALVO_URL_SEGURA",
-            "https://tcc-app-segura.onrender.com/login",
+            "https://himaya-app-segura.onrender.com/login",
         ),
     },
 ]
