@@ -1,34 +1,36 @@
 services:
-  # ── Scanner de Segurança ─────────────────────────────────
+  # Página inicial + relatórios do scanner
   - type: web
     name: tcc-scanner
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: python main.py --saida html
+    startCommand: gunicorn server:app --workers 1 --timeout 120
     envVars:
       - key: ALVO_URL_VULNERAVEL
         value: https://tcc-app-vulneravel.onrender.com/login
       - key: ALVO_URL_SEGURA
         value: https://tcc-app-segura.onrender.com/login
 
-  # ── Aplicação Vulnerável (alvo dos testes) ───────────────
+  # Aplicação vulnerável (alvo dos testes)
   - type: web
     name: tcc-app-vulneravel
     runtime: python
     plan: free
     rootDir: arquivovulneravel
-    buildCommand: pip install flask
-    startCommand: python app.py
-    envVars:
-      - key: FLASK_ENV
-        value: development
+    buildCommand: pip install flask gunicorn
+    startCommand: gunicorn app:app
 
-  # ── Aplicação Segura (versão corrigida) ──────────────────
+  # Aplicação segura (versão corrigida)
   - type: web
     name: tcc-app-segura
     runtime: python
     plan: free
     rootDir: arquivoseguro
-    buildCommand: pip install flask bcrypt email-validator
-    startCommand: python app.py
+    buildCommand: pip install flask gunicorn bcrypt email-validator
+    startCommand: gunicorn app:app
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: TRUST_PROXY
+        value: "1"
