@@ -14,6 +14,7 @@ pasta_raiz = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")
 sys.path.insert(0, pasta_raiz)
 
 from config import URL_ALVO
+from scanner.formulario import campos_login
 
 # Top 30 senhas mais comuns (OWASP / SecLists)
 WORDLIST = [
@@ -29,12 +30,12 @@ WORDLIST = [
 USUARIOS_ALVO = ["admin", "administrador", "root", "user", "teste"]
 
 # Indicadores de sucesso na resposta
+# (sem a palavra "sucesso": as apps respondem JSON com "sucesso": false)
 INDICADORES_SUCESSO = [
     "login realizado",
     "bem-vindo",
     "dashboard",
     "logout",
-    "sucesso",
 ]
 
 # Indicadores de bloqueio
@@ -43,14 +44,20 @@ INDICADORES_BLOQUEIO = [
     "too many",
     "muitas tentativas",
     "aguarde",
-    "tente novamente",
     "rate limit",
     "locked",
 ]
 
 
 def _autenticacao_bem_sucedida(resposta_html: str) -> bool:
-    """Verifica se a resposta indica login bem-sucedido."""
+    """Verifica se a resposta indica login bem-sucedido (JSON {"sucesso": true} ou texto)."""
+    import json
+    try:
+        dados = json.loads(resposta_html)
+        if isinstance(dados, dict) and "sucesso" in dados:
+            return dados["sucesso"] is True
+    except ValueError:
+        pass
     texto = resposta_html.lower()
     return any(ind in texto for ind in INDICADORES_SUCESSO)
 
@@ -80,7 +87,7 @@ def testar_bruteforce(url: str = URL_ALVO) -> str:
             try:
                 resposta = requests.post(
                     url,
-                    data={"usuario": usuario, "senha": senha},
+                    data=campos_login(usuario, senha),
                     timeout=60,
                     allow_redirects=True,
                 )

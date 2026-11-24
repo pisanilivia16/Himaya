@@ -5,7 +5,7 @@ from contextlib import closing
 import bcrypt
 
 DB_PATH = os.environ.get(
-    "DB_PATH", os.path.join(os.path.dirname(__file__), "..", "teste_seguro.db")
+    "DB_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "teste_seguro.db")
 )
 
 USUARIOS_INICIAIS = [
@@ -39,6 +39,10 @@ HASH_FALSO = gerar_hash("senha-descartavel-sem-uso")
 
 def inicializar_banco() -> None:
     with closing(conectar()) as con:
+        # banco criado por uma versão antiga não tem a coluna email; como é só demonstração, recria
+        colunas = [c[1] for c in con.execute("PRAGMA table_info(usuarios)")]
+        if colunas and "email" not in colunas:
+            con.execute("DROP TABLE usuarios")
         con.execute("""
             CREATE TABLE IF NOT EXISTS usuarios (
                 id        INTEGER PRIMARY KEY AUTOINCREMENT,

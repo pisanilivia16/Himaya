@@ -26,7 +26,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 app = Flask(__name__)
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "teste_vulneravel.db")
+# Banco dentro da própria pasta da aplicação (funciona com rootDir no Render).
+DB_PATH = os.environ.get(
+    "DB_PATH",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "teste_vulneravel.db"),
+)
 
 
 def conectar() -> sqlite3.Connection:
@@ -41,6 +45,11 @@ def inicializar_banco() -> None:
     """
     con = conectar()
     cursor = con.cursor()
+
+    # Banco antigo sem a coluna e-mail faz o cadastro dar erro: adiciona a coluna.
+    colunas = [c[1] for c in cursor.execute("PRAGMA table_info(usuarios)").fetchall()]
+    if colunas and "email" not in colunas:
+        cursor.execute("ALTER TABLE usuarios ADD COLUMN email TEXT")
 
     # Sem UNIQUE em e-mail de propósito — o cadastro vulnerável não
     # impede duplicidade.

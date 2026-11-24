@@ -1,35 +1,42 @@
+# Três serviços: o scanner (painel com os relatórios) e as duas apps-alvo.
+# Cada app usa 1 worker porque o banco é SQLite e o limitador de tentativas fica em memória.
 services:
-  # Página inicial + relatórios do scanner
   - type: web
     name: tcc-scanner
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn server:app --workers 1 --timeout 120
+    # server.py e não main.py: o main.py roda e termina, e o Render só dá link para serviço que fica no ar
+    startCommand: gunicorn server:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.3
       - key: ALVO_URL_VULNERAVEL
         value: https://app-vulneravel.onrender.com/login
       - key: ALVO_URL_SEGURA
         value: https://himaya-app-segura.onrender.com/login
 
-  # Aplicação vulnerável (alvo dos testes)
   - type: web
     name: tcc-app-vulneravel
     runtime: python
     plan: free
     rootDir: arquivovulneravel
-    buildCommand: pip install flask gunicorn
-    startCommand: gunicorn app:app
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.3
 
-  # Aplicação segura (versão corrigida)
   - type: web
     name: tcc-app-segura
     runtime: python
     plan: free
     rootDir: arquivoseguro
-    buildCommand: pip install flask gunicorn bcrypt email-validator
-    startCommand: gunicorn app:app
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.3
       - key: SECRET_KEY
         generateValue: true
       - key: TRUST_PROXY

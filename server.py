@@ -21,6 +21,8 @@ import glob
 import html
 import threading
 import subprocess
+import time
+import requests
 from datetime import datetime
 
 app = Flask(__name__)
@@ -31,11 +33,30 @@ REPORTS_DIR = os.path.join(BASE_DIR, "reports")
 _status = {"rodando": False, "ultima_execucao": None, "ultimo_erro": None}
 
 
+def _aquecer_alvos() -> None:
+    """
+    No plano gratuito do Render, cada serviço "dorme" após ~15 min sem acesso
+    e leva até ~1 min para acordar. Se o scan começar antes disso, os módulos
+    de rede dão timeout. Aqui esperamos cada app responder (até ~3 min).
+    """
+    from config import ALVOS
+    for alvo in ALVOS:
+        base = alvo["url"].rsplit("/login", 1)[0] + "/"
+        for _ in range(12):
+            try:
+                if requests.get(base, timeout=30).status_code < 500:
+                    break
+            except requests.RequestException:
+                pass
+            time.sleep(10)
+
+
 def _rodar_scan_bg() -> None:
     """Executa 'python main.py --saida html' como subprocesso, em background."""
     _status["rodando"] = True
     _status["ultimo_erro"] = None
     try:
+        _aquecer_alvos()
         resultado = subprocess.run(
             [sys.executable, "main.py", "--saida", "html"],
             cwd=BASE_DIR, capture_output=True, text=True, timeout=600,

@@ -12,6 +12,7 @@ pasta_raiz = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")
 sys.path.insert(0, pasta_raiz)
 
 from config import URL_ALVO
+from scanner.formulario import campos_login
 
 # Payloads organizados por categoria e severidade
 PAYLOADS = [
@@ -33,8 +34,10 @@ PAYLOADS = [
 def _enviar_payload(url: str, campo: str, payload: str) -> str | None:
     """Envia um payload em um campo do formulário e retorna o corpo da resposta."""
     try:
-        dados = {"usuario": "admin", "senha": "qualquer"}
+        dados = campos_login("admin", "qualquer")
         dados[campo] = payload
+        if campo == "usuario":
+            dados["email"] = payload
         resposta = requests.post(url, data=dados, timeout=5)
         return resposta.text
     except requests.exceptions.ConnectionError:
