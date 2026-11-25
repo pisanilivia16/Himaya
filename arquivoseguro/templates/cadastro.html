@@ -99,7 +99,7 @@
     <form id="form-cadastro">
       <div class="campo">
         <label for="usuario">Usuário</label>
-        <input type="text" id="usuario" name="usuario" placeholder="escolha um usuário" autocomplete="username">
+        <input type="text" id="usuario" name="usuario" placeholder="ex.: livia_pisani (sem espaços)" autocomplete="username">
       </div>
 
       <div class="campo">
@@ -112,7 +112,10 @@
         • Mínimo de 8 caracteres<br>
         • 1 letra maiúscula e 1 minúscula<br>
         • 1 número<br>
-        • 1 caractere especial (!@#$...)
+        • 1 caractere especial (!@#$...)<br>
+        • Sem sequências (1234, abcd), caracteres repetidos (aaa) ou senhas comuns<br>
+        • Sem o seu usuário ou e-mail dentro da senha<br><br>
+        <strong>O usuário</strong> tem de 3 a 64 caracteres: letras, números, ponto, hífen ou sublinhado (sem espaços).
       </div>
 
       <div class="campo">
